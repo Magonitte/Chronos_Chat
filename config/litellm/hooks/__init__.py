@@ -1,0 +1,1 @@
+# Adaptadores finos LiteLLM → orchestration/

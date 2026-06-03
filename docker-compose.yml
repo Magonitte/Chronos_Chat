@@ -1,0 +1,272 @@
+# New_Chat — stack Docker (T0.1)
+# llama.cpp roda no host Windows (:8080) — NÃO incluir neste compose.
+# LiteLLM acessa inferência via host.docker.internal:8080 (config em T1.1).
+
+name: newchat
+
+networks:
+  newchat-net:
+    name: newchat-net
+    driver: bridge
+
+volumes:
+  librechat_mongodb_data:
+  librechat_meili_data:
+  mem0_postgres_data:
+  mem0_history_data:
+  anythingllm_storage:
+
+services:
+  # --- LiteLLM (hub) :4000 — config montada em /app/config (T2.1) ---
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: newchat-litellm
+    restart: unless-stopped
+    networks:
+      - newchat-net
+    ports:
+      - "${LITELLM_PORT:-4000}:4000"
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app/config
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      LLAMA_API_BASE: ${LLAMA_API_BASE:-http://host.docker.internal:8080/v1}
+      MEM0_API_URL: ${MEM0_API_URL:-http://mem0:8000}
+      ANYTHINGLLM_API_URL: ${ANYTHINGLLM_API_URL:-http://anythingllm:3001}
+      ANYTHINGLLM_API_KEY: ${ANYTHINGLLM_API_KEY:-}
+      MEM0_TIMEOUT: ${MEM0_TIMEOUT:-5}
+      MEM0_ADD_TIMEOUT: ${MEM0_ADD_TIMEOUT:-120}
+      MEM0_SEARCH_LIMIT: ${MEM0_SEARCH_LIMIT:-5}
+      MEM0_MIN_SCORE: ${MEM0_MIN_SCORE:-0.35}
+      NEWCHAT_MAX_OUTPUT_TOKENS: ${NEWCHAT_MAX_OUTPUT_TOKENS:-1536}
+      NEWCHAT_DISABLE_THINKING: ${NEWCHAT_DISABLE_THINKING:-true}
+      NEWCHAT_MAX_CONTEXT_MESSAGES: ${NEWCHAT_MAX_CONTEXT_MESSAGES:-6}
+      RAG_TIMEOUT: ${RAG_TIMEOUT:-2}
+      ALLOWED_USER_IDS: ${ALLOWED_USER_IDS:-jean,tati}
+      CTX_TOTAL: ${CTX_TOTAL:-131072}
+      CTX_RESERVE_RESPONSE_PCT: ${CTX_RESERVE_RESPONSE_PCT:-0.20}
+      CTX_BUDGET_CONVERSATION_PCT: ${CTX_BUDGET_CONVERSATION_PCT:-0.30}
+      CTX_BUDGET_MEM0_PCT: ${CTX_BUDGET_MEM0_PCT:-0.05}
+      CTX_BUDGET_RAG_PCT: ${CTX_BUDGET_RAG_PCT:-0.30}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./config/litellm:/app/config:ro
+    command:
+      - "--config=/app/config/config.yaml"
+      - "--port=4000"
+      - "--host=0.0.0.0"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness')\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # --- LibreChat (UI) :3080 ---
+  librechat:
+    image: ghcr.io/danny-avila/librechat:latest
+    container_name: newchat-librechat
+    restart: unless-stopped
+    networks:
+      - newchat-net
+    ports:
+      - "${LIBRECHAT_PORT:-3080}:3080"
+    env_file:
+      - .env
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "3080"
+      MONGO_URI: mongodb://mongodb:27017/LibreChat
+      MEILI_HOST: http://meilisearch:7700
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      MEILI_NO_ANALYTICS: "true"
+      SEARCH: "false"
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      CREDS_KEY: ${CREDS_KEY}
+      CREDS_IV: ${CREDS_IV}
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+      # UI fina → LiteLLM only (T2.2 — config/librechat/librechat.yaml)
+      ENDPOINTS: custom
+      CONFIG_PATH: /app/client-config/librechat.yaml
+    volumes:
+      - ./config/librechat:/app/client-config:ro
+      - ./config/librechat/images:/app/client/public/images:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://127.0.0.1:3080/ || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+      litellm:
+        condition: service_healthy
+
+  mongodb:
+    image: mongo:7
+    container_name: newchat-mongodb
+    restart: unless-stopped
+    networks:
+      - newchat-net
+    volumes:
+      - librechat_mongodb_data:/data/db
+    command: mongod --noauth
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.12
+    container_name: newchat-meilisearch
+    restart: unless-stopped
+    networks:
+      - newchat-net
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      MEILI_NO_ANALYTICS: "true"
+    volumes:
+      - librechat_meili_data:/meili_data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--spider",
+          "http://127.0.0.1:7700/health",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # --- mem0 :8000 (build local amd64 — Hub image é arm64-only) ---
+  mem0:
+    build:
+      context: ./config/mem0
+      dockerfile: Dockerfile
+      args:
+        MEM0_GIT_REF: ${MEM0_GIT_REF:-main}
+    image: newchat-mem0-api:local
+    container_name: newchat-mem0
+    restart: unless-stopped
+    networks:
+      - newchat-net
+    ports:
+      - "${MEM0_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: mem0-postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${MEM0_POSTGRES_DB:-mem0}
+      POSTGRES_USER: ${MEM0_POSTGRES_USER:-mem0}
+      POSTGRES_PASSWORD: ${MEM0_POSTGRES_PASSWORD:-mem0}
+      APP_DB_NAME: ${MEM0_APP_DB_NAME:-mem0_app}
+      JWT_SECRET: ${MEM0_JWT_SECRET}
+      AUTH_DISABLED: ${MEM0_AUTH_DISABLED:-true}
+      MEM0_TELEMETRY: ${MEM0_TELEMETRY:-false}
+      OPENAI_API_KEY: ${MEM0_OPENAI_API_KEY:-local-placeholder}
+      HISTORY_DB_PATH: /app/history/history.db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - mem0_history_data:/app/history
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/docs')\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+    depends_on:
+      mem0-postgres:
+        condition: service_healthy
+
+  mem0-postgres:
+    image: pgvector/pgvector:pg16
+    container_name: newchat-mem0-postgres
+    restart: unless-stopped
+    networks:
+      - newchat-net
+    environment:
+      POSTGRES_DB: ${MEM0_POSTGRES_DB:-mem0}
+      POSTGRES_USER: ${MEM0_POSTGRES_USER:-mem0}
+      POSTGRES_PASSWORD: ${MEM0_POSTGRES_PASSWORD:-mem0}
+    volumes:
+      - mem0_postgres_data:/var/lib/postgresql/data
+      - ./config/mem0/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${MEM0_POSTGRES_USER:-mem0} -d ${MEM0_POSTGRES_DB:-mem0}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # --- AnythingLLM (RAG) :3001 — config em config/anythingllm/ (T2.4) ---
+  anythingllm:
+    image: mintplexlabs/anythingllm:latest
+    container_name: newchat-anythingllm
+    restart: unless-stopped
+    networks:
+      - newchat-net
+    ports:
+      - "${ANYTHINGLLM_PORT:-3001}:3001"
+    cap_add:
+      - SYS_ADMIN
+    env_file:
+      - .env
+    environment:
+      SERVER_PORT: "3001"
+      STORAGE_DIR: /app/server/storage
+      JWT_SECRET: ${ANYTHINGLLM_JWT_SECRET}
+      # Proteção opcional da UI (rede interna); API dev usa chave gerada no onboarding
+      AUTH_TOKEN: ${ANYTHINGLLM_AUTH_TOKEN:-}
+      VECTOR_DB: lancedb
+      DISABLE_TELEMETRY: ${ANYTHINGLLM_DISABLE_TELEMETRY:-true}
+      # Embedding local LEVE (CPU/Xenova) — NÃO usar llama.cpp :8080 nem Qwen 35B
+      EMBEDDING_ENGINE: ${ANYTHINGLLM_EMBEDDING_ENGINE:-native}
+      EMBEDDING_MODEL_PREF: ${ANYTHINGLLM_EMBEDDING_MODEL:-Xenova/all-MiniLM-L6-v2}
+      EMBEDDING_MODEL_MAX_CHUNK_LENGTH: ${ANYTHINGLLM_EMBEDDING_MAX_CHUNK:-1000}
+      WHISPER_PROVIDER: local
+      TTS_PROVIDER: native
+      UID: "1000"
+      GID: "1000"
+    volumes:
+      - anythingllm_storage:/app/server/storage
+      # Staging de documentos por usuário (upload/indexação via UI/API — ver workspaces.yaml)
+      - ./config/anythingllm/documents:/app/server/storage/import-documents:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl --silent --fail http://127.0.0.1:3001/api/ping/ > /dev/null || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s

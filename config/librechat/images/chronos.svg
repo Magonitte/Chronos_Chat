@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Chronos">
+  <defs>
+    <linearGradient id="chronos-gold" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FAF7F0"/>
+      <stop offset="0.45" stop-color="#E8D9B0"/>
+      <stop offset="1" stop-color="#BFA56A"/>
+    </linearGradient>
+    <linearGradient id="chronos-glow" x1="32" y1="12" x2="32" y2="52" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="29" stroke="url(#chronos-gold)" stroke-width="1.2" opacity="0.55"/>
+  <circle cx="32" cy="32" r="22" stroke="url(#chronos-gold)" stroke-width="0.8" opacity="0.35"/>
+  <path
+    d="M21 15h22l-7.5 14 7.5 14H21l7.5-14L21 15z"
+    stroke="url(#chronos-gold)"
+    stroke-width="1.6"
+    stroke-linejoin="round"
+    fill="url(#chronos-glow)"
+  />
+  <circle cx="32" cy="32" r="2.2" fill="url(#chronos-gold)"/>
+  <path
+    d="M32 10v4M32 50v4M10 32h4M50 32h4"
+    stroke="url(#chronos-gold)"
+    stroke-width="1.1"
+    stroke-linecap="round"
+    opacity="0.7"
+  />
+</svg>

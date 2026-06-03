@@ -1,0 +1,8 @@
+{
+  "model": "newchat",
+  "messages": [
+    {"role": "user", "content": "Trabalho como engenheiro em Sao Paulo."}
+  ],
+  "stream": false,
+  "metadata": {"user_id": "jean"}
+}

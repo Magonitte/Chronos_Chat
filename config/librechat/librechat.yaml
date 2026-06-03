@@ -1,0 +1,65 @@
+# New_Chat — LibreChat UI fina (T2.2)
+# Único backend LLM: LiteLLM hub. Memória/RAG via LiteLLM → mem0/AnythingLLM (não aqui).
+# Docs: config/librechat/README.md, config/librechat/user-mapping.md
+
+version: 1.3.11
+
+cache: true
+
+interface:
+  customWelcome: 'Chronos Chat'
+  modelSelect: true
+  parameters: true
+  presets: true
+  bookmarks: true
+  multiConvo: true
+  # RAG nativo / file search do LibreChat — desligado (RAG no hub LiteLLM)
+  fileSearch: false
+  fileCitations: false
+  agents:
+    use: false
+    create: false
+    share: false
+    public: false
+  marketplace:
+    use: false
+
+# Memória nativa LibreChat — desligada (mem0 via LiteLLM)
+memory:
+  disabled: true
+  personalize: false
+
+registration:
+  socialLogins: []
+
+modelSpecs:
+  enforce: true
+  prioritize: true
+  list:
+    - name: chronos
+      label: 'Chronos'
+      default: true
+      iconURL: '/images/chronos.svg'
+      preset:
+        endpoint: 'Chronos'
+        model: 'newchat'
+        modelLabel: 'Chronos'
+
+endpoints:
+  custom:
+    - name: 'Chronos'
+      iconURL: '/images/chronos.svg'
+      apiKey: '${LITELLM_MASTER_KEY}'
+      baseURL: 'http://litellm:4000/v1'
+      headers:
+        # Fail-closed no LiteLLM: username da conta DEVE ser jean | tati (ver user-mapping.md)
+        X-User-Id: '{{LIBRECHAT_USER_USERNAME}}'
+      models:
+        default:
+          - 'newchat'
+        fetch: false
+      titleConvo: true
+      titleModel: 'newchat'
+      summarize: false
+      modelDisplayLabel: 'Chronos'
+      dropParams: ['user']

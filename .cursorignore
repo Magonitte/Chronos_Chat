@@ -1,0 +1,27 @@
+﻿# Modelos e artefatos grandes
+*.gguf
+*.bin
+*.safetensors
+**/models/**
+
+# Dependencias e builds
+**/node_modules/**
+**/.venv/**
+**/__pycache__/**
+**/dist/**
+**/build/**
+
+# Secrets e dados locais
+.env
+.env.*
+!.env.example
+**/volumes/**
+**/data/**
+
+# Logs e cache
+**/*.log
+**/.cache/**
+
+# IDE / OS
+**/.DS_Store
+**/Thumbs.db

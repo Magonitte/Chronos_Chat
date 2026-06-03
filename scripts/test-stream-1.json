@@ -1,0 +1,8 @@
+{
+  "model": "newchat",
+  "messages": [
+    {"role": "user", "content": "Lembre que meu nome e Tati e moro em Joinville."}
+  ],
+  "stream": true,
+  "metadata": {"user_id": "tati"}
+}

@@ -1,0 +1,46 @@
+# New_Chat — LiteLLM Proxy (deploy T2.1)
+# Montado em /app/config via docker-compose (volume ./config/litellm:ro)
+#
+# Env lidos pelo proxy (compose + .env):
+#   LITELLM_MASTER_KEY, LLAMA_API_BASE
+#   MEM0_API_URL, ANYTHINGLLM_API_URL (orquestração F5/F6)
+#   ALLOWED_USER_IDS, CTX_* (orquestração F4)
+#
+# Callbacks F4.5 — validação X-User-Id (fail-closed)
+
+model_list:
+  - model_name: qwen3.6-35b
+    litellm_params:
+      model: openai/qwen3.6-35b
+      api_base: os.environ/LLAMA_API_BASE
+      api_key: none
+      max_tokens: 1536
+      timeout: 600
+      stream_timeout: 120
+    model_info:
+      mode: chat
+      supports_vision: true
+
+  # Alias estável para LibreChat (T2.2)
+  - model_name: newchat
+    litellm_params:
+      model: openai/qwen3.6-35b
+      api_base: os.environ/LLAMA_API_BASE
+      api_key: none
+      max_tokens: 1536
+      timeout: 600
+      stream_timeout: 120
+    model_info:
+      mode: chat
+      supports_vision: true
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+  request_timeout: 600
+  callbacks: custom_callbacks.proxy_handler_instance
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  # llama.cpp no host: health do proxy nao deve depender do backend (T2.1)
+  background_health_checks: false

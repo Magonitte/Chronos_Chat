@@ -1,0 +1,8 @@
+{
+  "model": "newchat",
+  "messages": [
+    {"role": "user", "content": "Ola! Qual e o meu nome?"}
+  ],
+  "stream": false,
+  "metadata": {"user_id": "jean"}
+}

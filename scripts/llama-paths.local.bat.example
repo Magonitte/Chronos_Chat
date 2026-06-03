@@ -1,0 +1,13 @@
+@echo off
+rem Copie para llama-paths.local.bat (gitignored) e ajuste os caminhos.
+rem Chamado automaticamente por Server_Qwen3.6-35B.bat e Server_Qwen3-Embedding-0.6B.bat
+
+set "LLAMA_DIR=C:\llama.cpp\llama-cpp-turboquant\build\bin\Release"
+
+rem --- Chat multimodal (porta 8080) ---
+set "MODEL_DIR=C:\caminho\para\pasta-do-modelo"
+set "MODEL_PATH=%MODEL_DIR%\seu-modelo-chat.gguf"
+set "MMPROJ_PATH=%MODEL_DIR%\mmproj.gguf"
+
+rem --- Embedder mem0 opcional (porta 8081) ---
+set "EMBED_MODEL_PATH=C:\caminho\para\embedder.gguf"

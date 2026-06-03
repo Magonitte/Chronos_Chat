@@ -1,0 +1,17 @@
+# Mapeamento user_id (X-User-Id) → workspace AnythingLLM
+# Usado por rag_client (F6) e bootstrap manual/script.
+#
+# Slugs devem ser estáveis (API /v1/workspace/:slug).
+# Criar workspaces na UI ou: scripts/bootstrap-anythingllm-workspaces.ps1
+
+# Slugs gerados pelo AnythingLLM a partir do nome (API /v1/workspace/new).
+# user_id (X-User-Id) permanece jean|tati — rag_client mapeia via workspace_slug.
+users:
+  jean:
+    workspace_name: Jean Carlos de Souza
+    workspace_slug: jean-carlos-de-souza
+    import_documents_dir: import-documents/jean
+  tati:
+    workspace_name: Tatiane Schlüter de Souza
+    workspace_slug: tatiane-schluter-de-souza
+    import_documents_dir: import-documents/tati

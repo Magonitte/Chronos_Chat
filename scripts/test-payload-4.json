@@ -1,0 +1,8 @@
+{
+  "model": "newchat",
+  "messages": [
+    {"role": "user", "content": "Salva isso: meu time do coracao e o Atletico."}
+  ],
+  "stream": false,
+  "metadata": {"user_id": "jean"}
+}
