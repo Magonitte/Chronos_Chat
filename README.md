@@ -1,5 +1,6 @@
 # Chronos Chat
 
+[![Versão](https://img.shields.io/github/v/release/Magonitte/Chronos_Chat?label=versão)](https://github.com/Magonitte/Chronos_Chat/releases)
 [![Licença: MIT](https://img.shields.io/badge/Licença-MIT-blue.svg)](LICENSE)
 [![100% local](https://img.shields.io/badge/cloud-nenhuma-success)](https://github.com/Magonitte/Chronos_Chat)
 [![Testes Python](https://img.shields.io/badge/testes-pytest-informational)](requirements-dev.txt)
@@ -7,6 +8,8 @@
 **Chronos Chat** é um stack de IA pessoal auto-hospedado para dois usuários isolados: memória de longo prazo (mem0), RAG em documentos (AnythingLLM), chat multimodal (visão) e interface estilo ChatGPT — **100% na sua máquina, sem inferência na nuvem**.
 
 Repositório: [github.com/Magonitte/Chronos_Chat](https://github.com/Magonitte/Chronos_Chat)
+
+**Versão atual:** [v1.1.0](https://github.com/Magonitte/Chronos_Chat/releases/tag/v1.1.0) — pensamento automático por contexto (F10). Histórico: [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -296,8 +299,10 @@ Não há deploy em nuvem neste repositório — produção é o seu próprio hos
 | Status | Item |
 |--------|------|
 | Concluído | Hub LiteLLM F0–F8: mem0, RAG, context budget, `X-User-Id`, visão E2E |
-| Concluído | **F10** Thinking policy — reasoning automático por contexto |
+| v1.1.0 | **F10** Thinking policy — reasoning automático por contexto |
 | Planejado | **F9** MCP só para ações (não memória/RAG base) |
+
+Novas versões: tag anotada `vMAJOR.MINOR.PATCH` + [GitHub Release](https://github.com/Magonitte/Chronos_Chat/releases) com notas do CHANGELOG.
 
 ---
 
