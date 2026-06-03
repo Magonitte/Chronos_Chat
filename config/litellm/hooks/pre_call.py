@@ -16,7 +16,8 @@ from orchestration import mem0_client
 from orchestration import rag_client
 from orchestration.memory_policy import is_system_request, should_skip_mem0_search
 from orchestration.rag_policy import should_trigger
-from orchestration.request_tuning import apply_generation_params, truncate_messages_for_context
+from orchestration.request_tuning import apply_max_tokens_cap, apply_thinking, truncate_messages_for_context
+from orchestration.thinking_policy import ThinkingContext, should_enable as should_enable_thinking
 from orchestration.types import ChatMessage, OrchestrationRequest, RagChunk, UserContext
 from orchestration.user_id import extract_user_id
 
@@ -103,7 +104,7 @@ def run_pre_call(data: dict[str, Any]) -> dict[str, Any]:
         has_images=_has_images(messages_raw),
     )
 
-    apply_generation_params(data)
+    apply_max_tokens_cap(data)
 
     meta = data.get("metadata")
     if not isinstance(meta, dict):
@@ -148,6 +149,16 @@ def run_pre_call(data: dict[str, Any]) -> dict[str, Any]:
             rag_chunks = rag_client.retrieve(user_id, query)
         rag_ms = rag_bucket[0]
 
+    thinking_ctx = ThinkingContext(
+        query=query,
+        conversation=domain_messages_full,
+        rag_chunk_count=len(rag_chunks),
+        has_images=_has_images(messages_raw),
+        is_system_request=False,
+    )
+    enable_thinking = should_enable_thinking(thinking_ctx)
+    apply_thinking(data, enable_thinking)
+
     built = context_builder.build(
         messages=domain_messages_ctx,
         memories=memories,
@@ -164,6 +175,7 @@ def run_pre_call(data: dict[str, Any]) -> dict[str, Any]:
     ]
     meta[METADATA_MEMORY_TEXTS_KEY] = [m.text for m in built.memories_used]
     meta[METADATA_RAG_TRIGGERED_KEY] = rag_triggered
+    meta["newchat_thinking_enabled"] = enable_thinking
 
     log_event(
         "pre_call_complete",

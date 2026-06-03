@@ -53,7 +53,8 @@ Leia [README.md](README.md) para instalação e execução. Por serviço: `confi
 4. mem0 PRE/POST + `memory_policy`  
 5. RAG `rag_policy` + `rag_client`  
 6. Observabilidade  
-7. MCP ações (fase 3)
+7. **F10** `thinking_policy` + `apply_thinking` (reasoning por contexto)  
+8. MCP ações (fase 3)
 
 ## Restrições críticas
 
@@ -61,6 +62,7 @@ Leia [README.md](README.md) para instalação e execução. Por serviço: `confi
 - **Nunca** LibreChat → mem0/AnythingLLM direto.
 - **Nunca** callbacks monolíticos — usar `orchestration/` + policies.
 - **Nunca** RAG por keyword solta — usar `rag_policy.should_trigger`.
+- **Nunca** thinking sempre ligado — usar `thinking_policy.should_enable` no PRE-CALL.
 - **Nunca** `import litellm` em `orchestration/`.
 - **Nunca** fallback de `user_id` — exigir header `X-User-Id`.
 - Memória isolada por `user_id` (`jean` / `tati`).

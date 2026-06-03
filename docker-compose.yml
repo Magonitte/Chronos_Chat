@@ -40,7 +40,10 @@ services:
       MEM0_SEARCH_LIMIT: ${MEM0_SEARCH_LIMIT:-5}
       MEM0_MIN_SCORE: ${MEM0_MIN_SCORE:-0.35}
       NEWCHAT_MAX_OUTPUT_TOKENS: ${NEWCHAT_MAX_OUTPUT_TOKENS:-1536}
-      NEWCHAT_DISABLE_THINKING: ${NEWCHAT_DISABLE_THINKING:-true}
+      NEWCHAT_THINKING_ENABLED: ${NEWCHAT_THINKING_ENABLED:-true}
+      NEWCHAT_THINKING_MAX_TOKENS: ${NEWCHAT_THINKING_MAX_TOKENS:-3072}
+      NEWCHAT_THINKING_RAG_CHUNKS: ${NEWCHAT_THINKING_RAG_CHUNKS:-3}
+      NEWCHAT_THINKING_MIN_CONVERSATION_TURNS: ${NEWCHAT_THINKING_MIN_CONVERSATION_TURNS:-6}
       NEWCHAT_MAX_CONTEXT_MESSAGES: ${NEWCHAT_MAX_CONTEXT_MESSAGES:-6}
       RAG_TIMEOUT: ${RAG_TIMEOUT:-2}
       ALLOWED_USER_IDS: ${ALLOWED_USER_IDS:-jean,tati}
@@ -97,7 +100,7 @@ services:
       CONFIG_PATH: /app/client-config/librechat.yaml
     volumes:
       - ./config/librechat:/app/client-config:ro
-      - ./config/librechat/images:/app/client/public/images:ro
+      - ./config/librechat/images/chronos.svg:/app/client/public/images/chronos.svg:ro
     healthcheck:
       test:
         [

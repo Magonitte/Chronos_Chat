@@ -18,8 +18,9 @@ Repositório: [github.com/Magonitte/Chronos_Chat](https://github.com/Magonitte/C
 | **Inferência** | llama.cpp TurboQuant no host Windows `:8080` (Qwen3.6-35B + visão) |
 | **Memória** | mem0 episódica por `user_id`, orquestração PRE/POST |
 | **RAG** | Workspaces AnythingLLM; busca só quando `rag_policy` aprovar |
+| **Pensamento** | Reasoning do Qwen ligado **só quando o contexto exige** (`thinking_policy`) |
 | **Privacidade** | Sem APIs externas de LLM; segredos ficam no `.env` local |
-| **Qualidade** | 230+ testes unitários/integração (policies, context budget, hooks) |
+| **Qualidade** | 240+ testes unitários/integração (policies, context budget, hooks) |
 
 ---
 
@@ -40,14 +41,15 @@ flowchart LR
 
 1. O usuário envia texto e/ou imagem pelo LibreChat.
 2. O LibreChat encaminha **somente** para o LiteLLM (`/v1/chat/completions`).
-3. **PRE-CALL** (`hooks/pre_call` → `orchestration/`): valida `X-User-Id`, busca mem0, RAG opcional, `context_builder`, injeta contexto no system.
-4. O LiteLLM faz proxy para o llama.cpp em `host.docker.internal:8080`.
-5. **POST-CALL**: `memory_policy.should_persist` → `mem0_client.add` quando fizer sentido.
+3. **PRE-CALL** (`hooks/pre_call` → `orchestration/`): valida `X-User-Id`, busca mem0, RAG opcional, **`thinking_policy`** (liga/desliga reasoning), `context_builder`, injeta contexto no system.
+4. O LiteLLM faz proxy para o llama.cpp em `host.docker.internal:8080` (`enable_thinking` conforme a policy).
+5. **POST-CALL**: normaliza resposta Qwen (`thinking_response`) e `memory_policy` → `mem0_client.add` quando fizer sentido.
 6. A resposta volta em streaming para o LibreChat.
 
 ### Regras de design (não quebrar)
 
 - Sem RAG por keyword solta (`if "pdf" in prompt`); usar `rag_policy.should_trigger`.
+- Sem thinking sempre ligado; usar `thinking_policy.should_enable` (não desabilitar só via flag global legada).
 - Sem `import litellm` dentro de `config/litellm/orchestration/`.
 - Sem fallback de `user_id` — `X-User-Id` ausente ou inválido → HTTP 400.
 - Não alterar flags validadas do llama-server sem re-benchmark (ver [Backend llama.cpp](#backend-llamacpp)).
@@ -124,8 +126,37 @@ docker compose build mem0
 | `LLAMA_API_BASE` | Padrão `http://host.docker.internal:8080/v1` |
 | `ALLOWED_USER_IDS` | Lista separada por vírgula, padrão `jean,tati` |
 | `CTX_*` | Percentuais do orçamento de contexto |
+| `NEWCHAT_THINKING_*` | Policy de pensamento automático (ver abaixo) |
 
 Lista completa em [.env.example](.env.example).
+
+### Pensamento automático (F10)
+
+O Qwen 3.6 no llama.cpp suporta *reasoning* interno (`enable_thinking`). O hub **não** deixa o modo pensar ligado o tempo todo: o módulo `thinking_policy.py` decide por request no PRE-CALL e o `request_tuning.apply_thinking` aplica no payload.
+
+| Situação | Thinking |
+|----------|----------|
+| Saudação trivial (`oi`, `obrigado`, etc.) | **Off** — resposta rápida |
+| Recall de memória (`você lembra…`, `o que sabe sobre mim`) | **Off** — mem0 já injeta contexto |
+| Comando de memória (`lembre que…`, `memorize…`) | **Off** — POST-CALL persiste sem raciocínio extra |
+| Request interno do LibreChat (ex.: título de conversa) | **Off** |
+| RAG com ≥ `NEWCHAT_THINKING_RAG_CHUNKS` chunks | **On** — síntese multi-documento |
+| Pergunta complexa (análise, código, comparação…) ou texto longo (> 80 caracteres) | **On** |
+| Conversa com ≥ `NEWCHAT_THINKING_MIN_CONVERSATION_TURNS` turnos e pergunta não trivial | **On** |
+| Imagem anexada + pergunta com mais de 30 caracteres | **On** |
+
+Quando thinking está **off**, `max_tokens` fica em `NEWCHAT_MAX_OUTPUT_TOKENS` (padrão 1536) e o request envia `enable_thinking: false`. Quando está **on**, sobe para `NEWCHAT_THINKING_MAX_TOKENS` (padrão 3072).
+
+| Variável | Padrão | Função |
+|----------|--------|--------|
+| `NEWCHAT_THINKING_ENABLED` | `true` | Kill switch — `false` desliga thinking em **todas** as requests |
+| `NEWCHAT_THINKING_MAX_TOKENS` | `3072` | Teto de geração com reasoning ligado |
+| `NEWCHAT_THINKING_RAG_CHUNKS` | `3` | Mínimo de chunks RAG para ativar por documentos |
+| `NEWCHAT_THINKING_MIN_CONVERSATION_TURNS` | `6` | Turnos user/assistant para “histórico longo” |
+
+Após alterar `.env`, reinicie o LiteLLM: `docker compose restart litellm`.
+
+O POST-CALL usa `thinking_response.py` para expor texto visível ao LibreChat quando o modelo preenche só o bloco de raciocínio.
 
 ### Usuários no LibreChat
 
@@ -176,7 +207,8 @@ scripts\health-check.bat
 
 - UI: **http://localhost:3080**
 - Modelo: **NewChat** / `newchat`
-- Testar memória: *"Lembre que meu time é o Atlético"*
+- Testar memória: *"Lembre que meu time é o Atlético"* (thinking off — persistência no POST-CALL)
+- Testar pensamento: pergunta analítica longa ou RAG com vários chunks (thinking on — latência maior, resposta mais elaborada)
 - RAG: perguntas com referência explícita a documentos (via policy); ingestão de PDFs em **http://localhost:3001**
 
 ### Parar
@@ -212,7 +244,7 @@ python -m pytest
 
 | Suíte | Escopo |
 |-------|--------|
-| `tests/test_*.py` | Policies, context builder, clients, hooks |
+| `tests/test_*.py` | Policies (memória, RAG, **thinking**), context builder, clients, hooks |
 | `tests/integration/` | Cadeia pre/post_call, isolamento de usuários, triggers RAG |
 
 Testes de integração contra Docker ao vivo são opcionais:
@@ -264,8 +296,8 @@ Não há deploy em nuvem neste repositório — produção é o seu próprio hos
 | Status | Item |
 |--------|------|
 | Concluído | Hub LiteLLM F0–F8: mem0, RAG, context budget, `X-User-Id`, visão E2E |
+| Concluído | **F10** Thinking policy — reasoning automático por contexto |
 | Planejado | **F9** MCP só para ações (não memória/RAG base) |
-| Planejado | Thinking policy / tuning estendido (via env) |
 
 ---
 

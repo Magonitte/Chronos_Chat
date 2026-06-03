@@ -12,6 +12,9 @@ Lógica de negócio do hub LiteLLM.
 | `rag_client.py` | `retrieve(workspace, query)` |
 | `memory_policy.py` | `should_persist(conversation, response, ctx) → bool` |
 | `rag_policy.py` | `should_trigger(query, user_context) → bool` |
+| `thinking_policy.py` | `should_enable(ctx) → bool` — reasoning Qwen por contexto (F10) |
+| `thinking_response.py` | Normaliza content vazio quando thinking consome tokens |
+| `request_tuning.py` | `apply_thinking`, cap `max_tokens`, truncar histórico |
 
 Policies são testáveis isoladamente. Clients fazem HTTP — sem lógica de decisão.
 

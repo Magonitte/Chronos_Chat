@@ -38,6 +38,10 @@ from orchestration.mem0_client import (
     load_config,
     search,
 )
+from orchestration.thinking_policy import (
+    ThinkingContext,
+    should_enable as thinking_should_enable,
+)
 
 __all__ = [
     "ALLOWED_USER_IDS",
@@ -66,4 +70,6 @@ __all__ = [
     "extract_search_query",
     "load_config",
     "search",
+    "ThinkingContext",
+    "thinking_should_enable",
 ]

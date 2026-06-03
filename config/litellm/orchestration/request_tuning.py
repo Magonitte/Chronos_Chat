@@ -49,40 +49,53 @@ def apply_max_tokens_cap(
         data["max_tokens"] = cap
 
 
-def apply_disable_thinking(
+DEFAULT_THINKING_MAX_TOKENS = 3072
+
+
+def apply_thinking(
     data: dict[str, Any],
+    enable: bool,
     environ: Mapping[str, str] | None = None,
 ) -> None:
     """
-    Desliga thinking no llama.cpp (Qwen 3.6).
+    Controla thinking no llama.cpp (Qwen 3.6) baseado na politica.
 
-    Sem isso, max_tokens vira só raciocínio e content fica vazio → LibreChat
-    mostra apenas 'Pensamentos'.
+    enable=True  → ajusta max_tokens para cima (NEWCHAT_THINKING_MAX_TOKENS).
+    enable=False → desliga thinking (extra_body.enable_thinking = False).
     """
     env = environ if environ is not None else os.environ
-    if not _env_bool(env, "NEWCHAT_DISABLE_THINKING", True):
-        return
 
-    extra = data.get("extra_body")
-    if not isinstance(extra, dict):
-        extra = {}
+    if enable:
+        thinking_tokens = _env_int(env, "NEWCHAT_THINKING_MAX_TOKENS", DEFAULT_THINKING_MAX_TOKENS)
+        current = data.get("max_tokens")
+        if current is None:
+            data["max_tokens"] = thinking_tokens
+        else:
+            try:
+                if int(current) < thinking_tokens:
+                    data["max_tokens"] = thinking_tokens
+            except (TypeError, ValueError):
+                data["max_tokens"] = thinking_tokens
+    else:
+        extra = data.get("extra_body")
+        if not isinstance(extra, dict):
+            extra = {}
 
-    kwargs = extra.get("chat_template_kwargs")
-    if not isinstance(kwargs, dict):
-        kwargs = {}
-    kwargs["enable_thinking"] = False
-    extra["chat_template_kwargs"] = kwargs
-    extra["enable_thinking"] = False
-    data["extra_body"] = extra
+        kwargs = extra.get("chat_template_kwargs")
+        if not isinstance(kwargs, dict):
+            kwargs = {}
+        kwargs["enable_thinking"] = False
+        extra["chat_template_kwargs"] = kwargs
+        extra["enable_thinking"] = False
+        data["extra_body"] = extra
 
 
 def apply_generation_params(
     data: dict[str, Any],
     environ: Mapping[str, str] | None = None,
 ) -> None:
-    """Cap de max_tokens + desliga thinking (chat visível)."""
+    """Cap de max_tokens (pensando desligado pelo thinking_policy no pre_call)."""
     apply_max_tokens_cap(data, environ)
-    apply_disable_thinking(data, environ)
 
 
 def truncate_messages_for_context(
@@ -114,3 +127,11 @@ def truncate_messages_for_context(
     if system_msgs:
         return tuple(system_msgs) + tuple(tail)
     return tuple(tail)
+
+
+def apply_disable_thinking(
+    data: dict[str, Any],
+    environ: Mapping[str, str] | None = None,
+) -> None:
+    """Deprecated. Use apply_thinking(data, enable=False, environ=environ)."""
+    apply_thinking(data, False, environ)

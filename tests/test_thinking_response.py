@@ -38,8 +38,7 @@ def test_apply_disable_thinking_sets_extra_body() -> None:
     assert data["extra_body"]["chat_template_kwargs"]["enable_thinking"] is False
 
 
-def test_apply_generation_params_combines_cap_and_thinking() -> None:
+def test_apply_generation_params_only_caps_tokens() -> None:
     data = {"max_tokens": 8000}
-    apply_generation_params(data, {"NEWCHAT_MAX_OUTPUT_TOKENS": "1536", "NEWCHAT_DISABLE_THINKING": "true"})
+    apply_generation_params(data, {"NEWCHAT_MAX_OUTPUT_TOKENS": "1536"})
     assert data["max_tokens"] == 1536
-    assert data["extra_body"]["enable_thinking"] is False
