@@ -1,27 +1,27 @@
-# Security Policy
+# Política de segurança
 
-## Reporting a vulnerability
+## Reportar vulnerabilidades
 
-If you discover a security issue, please **do not** open a public GitHub issue with exploit details. Open a private security advisory on the repository or contact the maintainers directly.
+Se você encontrar um problema de segurança, **não** abra uma issue pública no GitHub com detalhes de exploração. Use um security advisory privado no repositório ou contate os mantenedores diretamente.
 
-## Secrets and local configuration
+## Segredos e configuração local
 
-Never commit:
+Nunca commite:
 
-- `.env` or any file with real API keys, JWT secrets, or database passwords
-- `scripts/llama-paths.local.bat` (machine-specific paths)
-- Docker volumes, model weights (`.gguf`), or user data exports
+- `.env` ou qualquer arquivo com API keys, JWT secrets ou senhas de banco reais
+- `scripts/llama-paths.local.bat` (caminhos específicos da máquina)
+- Volumes Docker, pesos de modelo (`.gguf`) ou exportações de dados de usuário
 
-Use `.env.example` as a template and generate unique values for every deployment.
+Use `.env.example` como modelo e gere valores únicos em cada instalação.
 
-## Before your first push
+## Antes do primeiro push
 
-1. Confirm `.env` is ignored: `git check-ignore -v .env`
-2. Search the staging area: `git grep -i "api_key\|secret\|password" --cached` (should only hit placeholders and examples)
-3. If a secret was ever committed, rotate it and rewrite history (`git filter-repo` or BFG) before publishing
+1. Confirme que `.env` está ignorado: `git check-ignore -v .env`
+2. Varra o staging: `git grep -i "api_key\|secret\|password" --cached` (deve aparecer só placeholders e exemplos)
+3. Se um segredo já foi commitado, rotacione e reescreva o histórico (`git filter-repo` ou BFG) antes de publicar
 
-## Operational notes
+## Notas operacionais
 
-- `LITELLM_MASTER_KEY` protects the LiteLLM proxy; LibreChat uses the same value for the custom endpoint.
-- `X-User-Id` is enforced fail-closed (`jean` | `tati` by default); do not weaken allowlists in production.
-- AnythingLLM API keys are created in the AnythingLLM UI; store them only in `.env`.
+- `LITELLM_MASTER_KEY` protege o proxy LiteLLM; o LibreChat usa o mesmo valor no endpoint customizado.
+- `X-User-Id` é fail-closed (`jean` | `tati` por padrão); não enfraqueça allowlists em produção.
+- Chaves de API do AnythingLLM são criadas na UI do AnythingLLM; armazene apenas no `.env`.

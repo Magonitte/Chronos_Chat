@@ -1,41 +1,41 @@
 # AGENTS.md — Chronos Chat
 
-Guide for AI coding agents working in this repository.
+Guia para agentes de IA que trabalham neste repositório.
 
-## What this project is
+## O que é este projeto
 
-Self-hosted personal AI for two users (`jean`, `tati`): ChatGPT-style UI, long-term memory (mem0), document RAG (AnythingLLM), vision, future MCP actions. **No cloud inference.**
+IA pessoal auto-hospedada para dois usuários (`jean`, `tati`): UI estilo ChatGPT, memória de longo prazo (mem0), RAG em documentos (AnythingLLM), visão e MCP de ações no futuro. **Sem inferência na nuvem.**
 
-## Architecture
+## Arquitetura
 
 ```
-User → LibreChat (thin UI)
-          ↓
-     LiteLLM (HUB)
-          ↓
+Usuário → LibreChat (UI fina)
+              ↓
+         LiteLLM (HUB)
+              ↓
    ┌──────┼──────┐
    ↓      ↓      ↓
  mem0  AnythingLLM  llama.cpp (host :8080)
 ```
 
-- **LibreChat** talks **only** to LiteLLM.
-- **LiteLLM** orchestrates via `config/litellm/orchestration/` and thin hooks in `config/litellm/hooks/`.
-- **MCP (phase 3):** actions only — not base memory/RAG.
+- **LibreChat** fala **somente** com o LiteLLM.
+- **LiteLLM** orquestra via `config/litellm/orchestration/` e hooks finos em `config/litellm/hooks/`.
+- **MCP (fase 3):** só ações — não memória/RAG base.
 
-## Where things run
+## O que roda onde
 
-| Component | Environment | Start |
-|-----------|-------------|--------|
-| llama-server | Windows host | `scripts/Server_Qwen3.6-35B.bat` (+ `llama-paths.local.bat`) |
+| Componente | Ambiente | Como iniciar |
+|------------|----------|--------------|
+| llama-server | Host Windows | `scripts/Server_Qwen3.6-35B.bat` (+ `llama-paths.local.bat`) |
 | LiteLLM, LibreChat, mem0, AnythingLLM | Docker | `docker compose up -d` / `scripts/start-stack.bat` |
 
-## Repo layout
+## Layout do repositório
 
 ```
 config/
   litellm/
-    orchestration/   # pure Python — NO import litellm
-    hooks/           # pre_call, post_call — LiteLLM boundary
+    orchestration/   # Python puro — PROIBIDO import litellm
+    hooks/           # pre_call, post_call — fronteira LiteLLM
   librechat/
   mem0/
   anythingllm/
@@ -43,31 +43,31 @@ scripts/
 tests/
 ```
 
-Read [README.md](README.md) for install/run. Per-service: `config/*/README.md`.
+Leia [README.md](README.md) para instalação e execução. Por serviço: `config/*/README.md`.
 
-## Implementation order (historical)
+## Ordem de implementação (histórico)
 
 1. docker-compose + LiteLLM → llama.cpp  
-2. LibreChat → LiteLLM only (no native RAG/memory plugins)  
-3. orchestration skeleton + hooks  
+2. LibreChat → somente LiteLLM (sem plugins nativos de RAG/memória)  
+3. Esqueleto orchestration + hooks  
 4. mem0 PRE/POST + `memory_policy`  
 5. RAG `rag_policy` + `rag_client`  
-6. Observability  
-7. MCP actions (phase 3)
+6. Observabilidade  
+7. MCP ações (fase 3)
 
-## Critical constraints
+## Restrições críticas
 
-- **Never** change llama-server flags in `scripts/Server_Qwen3.6-35B.bat` without explicit user approval and revalidation.
-- **Never** LibreChat → mem0/AnythingLLM direct calls.
-- **Never** monolithic callbacks — use `orchestration/` + policies.
-- **Never** keyword-only RAG — use `rag_policy.should_trigger`.
-- **Never** `import litellm` in `orchestration/`.
-- **Never** `user_id` fallback — require `X-User-Id` header.
-- Memory isolated per `user_id` (`jean` / `tati`).
-- Context budget: see `CTX_*` in `.env.example` and `orchestration/context_budget.py`.
+- **Nunca** alterar flags do llama-server em `scripts/Server_Qwen3.6-35B.bat` sem aprovação explícita e revalidação.
+- **Nunca** LibreChat → mem0/AnythingLLM direto.
+- **Nunca** callbacks monolíticos — usar `orchestration/` + policies.
+- **Nunca** RAG por keyword solta — usar `rag_policy.should_trigger`.
+- **Nunca** `import litellm` em `orchestration/`.
+- **Nunca** fallback de `user_id` — exigir header `X-User-Id`.
+- Memória isolada por `user_id` (`jean` / `tati`).
+- Context budget: ver `CTX_*` em `.env.example` e `orchestration/context_budget.py`.
 
-## When implementing
+## Ao implementar
 
-- One focused change per task.
-- Add tests for policies and `context_builder`.
-- Do not commit `.env`, `docs/`, `.cursor/`, or `llama-paths.local.bat`.
+- Uma mudança focada por tarefa.
+- Adicionar testes para policies e `context_builder`.
+- Não commitar `.env`, `docs/`, `.cursor/` nem `llama-paths.local.bat`.

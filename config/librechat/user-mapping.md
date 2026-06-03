@@ -1,6 +1,6 @@
 # Mapeamento conta LibreChat → X-User-Id
 
-Contract: header `X-User-Id` must match `ALLOWED_USER_IDS` in `.env` (fail-closed). See [README](../../README.md#architecture).
+Contrato: o header `X-User-Id` deve estar em `ALLOWED_USER_IDS` no `.env` (fail-closed). Ver [README](../../README.md#arquitetura).
 
 | Conta LibreChat (username) | Header enviado ao LiteLLM |
 |----------------------------|---------------------------|

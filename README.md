@@ -1,170 +1,170 @@
 # Chronos Chat
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Local only](https://img.shields.io/badge/cloud-none-success)](https://github.com/Magonitte/Chronos_Chat)
-[![Python tests](https://img.shields.io/badge/tests-pytest-informational)](requirements-dev.txt)
+[![Licença: MIT](https://img.shields.io/badge/Licença-MIT-blue.svg)](LICENSE)
+[![100% local](https://img.shields.io/badge/cloud-nenhuma-success)](https://github.com/Magonitte/Chronos_Chat)
+[![Testes Python](https://img.shields.io/badge/testes-pytest-informational)](requirements-dev.txt)
 
-**Chronos Chat** is a self-hosted personal AI stack for two isolated users: long-term memory (mem0), document RAG (AnythingLLM), multimodal chat (vision), and a ChatGPT-style UI — **100% on your machine, no cloud inference**.
+**Chronos Chat** é um stack de IA pessoal auto-hospedado para dois usuários isolados: memória de longo prazo (mem0), RAG em documentos (AnythingLLM), chat multimodal (visão) e interface estilo ChatGPT — **100% na sua máquina, sem inferência na nuvem**.
 
-Repository: [github.com/Magonitte/Chronos_Chat](https://github.com/Magonitte/Chronos_Chat)
+Repositório: [github.com/Magonitte/Chronos_Chat](https://github.com/Magonitte/Chronos_Chat)
 
 ---
 
-## Features
+## Funcionalidades
 
-| Area | What you get |
+| Área | O que você tem |
 |------|----------------|
-| **Chat** | LibreChat UI on `:3080`, single custom endpoint to LiteLLM |
-| **Inference** | llama.cpp TurboQuant on Windows host `:8080` (Qwen3.6-35B + vision) |
-| **Memory** | mem0 episodic memory per `user_id`, PRE/POST orchestration |
-| **RAG** | AnythingLLM workspaces; retrieval only when `rag_policy` approves |
-| **Privacy** | No external LLM APIs; secrets stay in local `.env` |
-| **Quality** | 230+ unit/integration tests for policies, context budget, hooks |
+| **Chat** | Interface LibreChat em `:3080`, endpoint único customizado para o LiteLLM |
+| **Inferência** | llama.cpp TurboQuant no host Windows `:8080` (Qwen3.6-35B + visão) |
+| **Memória** | mem0 episódica por `user_id`, orquestração PRE/POST |
+| **RAG** | Workspaces AnythingLLM; busca só quando `rag_policy` aprovar |
+| **Privacidade** | Sem APIs externas de LLM; segredos ficam no `.env` local |
+| **Qualidade** | 230+ testes unitários/integração (policies, context budget, hooks) |
 
 ---
 
-## Architecture
+## Arquitetura
 
-**LiteLLM is the hub.** LibreChat is a thin UI and must not call mem0 or AnythingLLM directly.
+**O LiteLLM é o hub.** O LibreChat é UI fina e **não** deve chamar mem0 nem AnythingLLM diretamente.
 
 ```mermaid
 flowchart LR
-  U[Users jean / tati] --> LC[LibreChat :3080]
+  U[Usuários jean / tati] --> LC[LibreChat :3080]
   LC --> LM[LiteLLM :4000]
   LM --> M0[mem0 :8000]
   LM --> ALLM[AnythingLLM :3001]
   LM --> LLM[llama-server :8080 host]
 ```
 
-### Message flow
+### Fluxo de uma mensagem
 
-1. User sends text and/or image via LibreChat.
-2. LibreChat forwards **only** to LiteLLM (`/v1/chat/completions`).
-3. **PRE-CALL** (`hooks/pre_call` → `orchestration/`): validate `X-User-Id`, mem0 search, optional RAG, `context_builder`, inject system context.
-4. LiteLLM proxies to llama.cpp at `host.docker.internal:8080`.
-5. **POST-CALL**: `memory_policy.should_persist` → `mem0_client.add` when appropriate.
-6. Response streams back to LibreChat.
+1. O usuário envia texto e/ou imagem pelo LibreChat.
+2. O LibreChat encaminha **somente** para o LiteLLM (`/v1/chat/completions`).
+3. **PRE-CALL** (`hooks/pre_call` → `orchestration/`): valida `X-User-Id`, busca mem0, RAG opcional, `context_builder`, injeta contexto no system.
+4. O LiteLLM faz proxy para o llama.cpp em `host.docker.internal:8080`.
+5. **POST-CALL**: `memory_policy.should_persist` → `mem0_client.add` quando fizer sentido.
+6. A resposta volta em streaming para o LibreChat.
 
-### Design rules (do not break)
+### Regras de design (não quebrar)
 
-- No keyword-only RAG (`if "pdf" in prompt`); use `rag_policy.should_trigger`.
-- No `import litellm` inside `config/litellm/orchestration/`.
-- No default/fallback `user_id` — missing or invalid `X-User-Id` → HTTP 400.
-- Do not change validated llama-server flags without re-benchmarking (see [Backend llama.cpp](#backend-llamacpp)).
+- Sem RAG por keyword solta (`if "pdf" in prompt`); usar `rag_policy.should_trigger`.
+- Sem `import litellm` dentro de `config/litellm/orchestration/`.
+- Sem fallback de `user_id` — `X-User-Id` ausente ou inválido → HTTP 400.
+- Não alterar flags validadas do llama-server sem re-benchmark (ver [Backend llama.cpp](#backend-llamacpp)).
 
-### Context budget (131k tokens)
+### Orçamento de contexto (131k tokens)
 
-Default allocation on `CTX_TOTAL=131072`:
+Alocação padrão com `CTX_TOTAL=131072`:
 
-| Slice | Share | Role |
-|-------|-------|------|
-| Response reserve | 20% | Space for model output |
-| Conversation | 30% | Recent chat history |
-| mem0 | 5% (configurable via `CTX_BUDGET_MEM0_PCT`) | Retrieved memories |
-| RAG | 30% | Document chunks |
+| Fatia | % | Papel |
+|-------|---|--------|
+| Reserva de resposta | 20% | Espaço para saída do modelo |
+| Conversa | 30% | Histórico recente do chat |
+| mem0 | 5% (ajustável via `CTX_BUDGET_MEM0_PCT`) | Memórias recuperadas |
+| RAG | 30% | Chunks de documentos |
 
-Tune via `CTX_*` variables in `.env.example`.
+Ajuste pelas variáveis `CTX_*` em `.env.example`.
 
 ---
 
 ## Stack
 
-| Component | Role | Where |
-|-----------|------|--------|
-| **LibreChat** | Web UI | Docker `:3080` |
-| **LiteLLM** | Hub + orchestration hooks | Docker `:4000` |
-| **llama.cpp** | LLM + vision | Windows host `:8080` |
-| **mem0** | Long-term memory API | Docker `:8000` |
-| **AnythingLLM** | RAG / documents | Docker `:3001` |
+| Componente | Função | Onde roda |
+|------------|--------|-----------|
+| **LibreChat** | Interface web | Docker `:3080` |
+| **LiteLLM** | Hub + hooks de orquestração | Docker `:4000` |
+| **llama.cpp** | LLM + visão | Host Windows `:8080` |
+| **mem0** | API de memória de longo prazo | Docker `:8000` |
+| **AnythingLLM** | RAG / documentos | Docker `:3001` |
 
-Reference hardware (tested): see [Hardware.md](Hardware.md).
-
----
-
-## Prerequisites
-
-- **Windows 11** (or Windows 10) with Docker Desktop running
-- **Python 3.11+** for tests (`pip install -r requirements-dev.txt`)
-- **llama.cpp TurboQuant** build with `llama-server.exe` ([TheTom/llama-cpp-turboquant](https://github.com/TheTom/llama-cpp-turboquant))
-- GGUF chat model + `mmproj` for vision (paths configured locally)
-- ~32 GB RAM and a discrete GPU recommended for the 35B MoE setup
+Hardware de referência (validado): [Hardware.md](Hardware.md).
 
 ---
 
-## Installation
+## Pré-requisitos
+
+- **Windows 11** (ou 10) com Docker Desktop em execução
+- **Python 3.11+** para testes (`pip install -r requirements-dev.txt`)
+- Build **llama.cpp TurboQuant** com `llama-server.exe` ([TheTom/llama-cpp-turboquant](https://github.com/TheTom/llama-cpp-turboquant))
+- Modelo GGUF de chat + `mmproj` para visão (caminhos configurados localmente)
+- ~32 GB de RAM e GPU dedicada recomendados para o setup MoE 35B
+
+---
+
+## Instalação
 
 ```powershell
 git clone https://github.com/Magonitte/Chronos_Chat.git
 cd Chronos_Chat
 
-# Environment
+# Ambiente
 copy .env.example .env
-# Edit .env — replace ALL change-me-* placeholders with strong random secrets
+# Edite .env — troque TODOS os placeholders change-me-* por segredos fortes e únicos
 
-# llama paths (not committed)
+# Caminhos do llama (não versionados)
 copy scripts\llama-paths.local.bat.example scripts\llama-paths.local.bat
-# Edit LLAMA_DIR, MODEL_PATH, MMPROJ_PATH (and optional EMBED_MODEL_PATH)
+# Edite LLAMA_DIR, MODEL_PATH, MMPROJ_PATH (e opcional EMBED_MODEL_PATH)
 
-# First-time mem0 image
+# Primeira vez: imagem mem0
 docker compose build mem0
 ```
 
 ---
 
-## Configuration
+## Configuração
 
-### Root `.env`
+### `.env` na raiz
 
-| Variable | Purpose |
-|----------|---------|
-| `LITELLM_MASTER_KEY` | LiteLLM proxy auth (also LibreChat custom endpoint key) |
-| `JWT_*`, `CREDS_*`, `MEILI_*` | LibreChat crypto / search |
-| `MEM0_*` | Postgres + mem0 app settings |
-| `ANYTHINGLLM_*` | RAG service; set `ANYTHINGLLM_API_KEY` after UI onboarding |
-| `LLAMA_API_BASE` | Default `http://host.docker.internal:8080/v1` |
-| `ALLOWED_USER_IDS` | Comma list, default `jean,tati` |
-| `CTX_*` | Context budget percentages |
+| Variável | Finalidade |
+|----------|------------|
+| `LITELLM_MASTER_KEY` | Auth do proxy LiteLLM (mesma chave no endpoint custom do LibreChat) |
+| `JWT_*`, `CREDS_*`, `MEILI_*` | Cripto / busca do LibreChat |
+| `MEM0_*` | Postgres + app mem0 |
+| `ANYTHINGLLM_*` | Serviço RAG; defina `ANYTHINGLLM_API_KEY` após onboarding na UI |
+| `LLAMA_API_BASE` | Padrão `http://host.docker.internal:8080/v1` |
+| `ALLOWED_USER_IDS` | Lista separada por vírgula, padrão `jean,tati` |
+| `CTX_*` | Percentuais do orçamento de contexto |
 
-See [.env.example](.env.example) for the full list.
+Lista completa em [.env.example](.env.example).
 
-### LibreChat users
+### Usuários no LibreChat
 
-Register accounts with usernames **`jean`** or **`tati`** (lowercase). LibreChat sends `X-User-Id` from the username via `config/librechat/librechat.yaml`. Details: [config/librechat/user-mapping.md](config/librechat/user-mapping.md).
+Registre contas com username **`jean`** ou **`tati`** (minúsculas). O LibreChat envia `X-User-Id` a partir do username via `config/librechat/librechat.yaml`. Detalhes: [config/librechat/user-mapping.md](config/librechat/user-mapping.md).
 
-### AnythingLLM API key
+### Chave de API do AnythingLLM
 
-1. Open `http://localhost:3001` after the stack is up.
-2. Create workspaces (see `config/anythingllm/workspaces.yaml`).
-3. Generate an API key in Settings → API Keys.
-4. Set `ANYTHINGLLM_API_KEY` in `.env` and restart LiteLLM.
+1. Abra `http://localhost:3001` com a stack no ar.
+2. Crie workspaces (veja `config/anythingllm/workspaces.yaml`).
+3. Gere uma API key em Settings → API Keys.
+4. Defina `ANYTHINGLLM_API_KEY` no `.env` e reinicie o LiteLLM.
 
 ---
 
-## Run locally
+## Executar localmente
 
-### Daily startup order
+### Ordem de subida (uso diário)
 
-**1. llama-server (host, before Docker chat)**
+**1. llama-server (host, antes do chat Docker)**
 
 ```bat
 scripts\Server_Qwen3.6-35B.bat
 ```
 
-Or from repo root: `Server_Qwen3.6-35B.bat`
+Ou na raiz do repo: `Server_Qwen3.6-35B.bat`
 
-Verify:
+Conferir:
 
 ```powershell
 curl.exe http://127.0.0.1:8080/v1/models
 ```
 
-**2. Docker stack**
+**2. Stack Docker**
 
 ```bat
 scripts\start-stack.bat
 ```
 
-Equivalent: `docker compose up -d` then `scripts\health-check.bat --wait`.
+Equivalente: `docker compose up -d` e depois `scripts\health-check.bat --wait`.
 
 **3. Health check**
 
@@ -175,47 +175,47 @@ scripts\health-check.bat
 **4. Chat**
 
 - UI: **http://localhost:3080**
-- Model: **NewChat** / `newchat`
-- Test memory: *"Lembre que meu time é o Atlético"*
-- RAG: ask with explicit document phrasing (policy-based), ingest PDFs at **http://localhost:3001**
+- Modelo: **NewChat** / `newchat`
+- Testar memória: *"Lembre que meu time é o Atlético"*
+- RAG: perguntas com referência explícita a documentos (via policy); ingestão de PDFs em **http://localhost:3001**
 
-### Stop
+### Parar
 
 ```powershell
 docker compose down
-# Close llama-server window or: taskkill /f /im llama-server.exe
+# Feche a janela do llama-server ou: taskkill /f /im llama-server.exe
 ```
 
 ---
 
 ## Backend llama.cpp
 
-Validated launcher: `scripts/Server_Qwen3.6-35B.bat` (requires `llama-paths.local.bat`).
+Launcher validado: `scripts/Server_Qwen3.6-35B.bat` (exige `llama-paths.local.bat`).
 
-**Do not change** these flags without re-measuring latency and VRAM:
+**Não altere** estas flags sem medir de novo latência e VRAM:
 
 - `--mmproj`, `--image-min-tokens 1024`, `--no-mmproj-offload`
 - `-c 131072`, `--fit on --fit-target 1536`, `--flash-attn on`, `--cont-batching`
 - `--rope-scaling yarn --rope-scale 4 --yarn-orig-ctx 32768`
 - `-b 2048 -ub 512`, `--kv-unified`, `--host 0.0.0.0 --port 8080`
 
-Optional embedder for mem0: `scripts\Server_Qwen3-Embedding-0.6B.bat` on port **8081**.
+Embedder opcional para mem0: `scripts\Server_Qwen3-Embedding-0.6B.bat` na porta **8081**.
 
 ---
 
-## Tests
+## Testes
 
 ```powershell
 pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-| Suite | Scope |
+| Suíte | Escopo |
 |-------|--------|
 | `tests/test_*.py` | Policies, context builder, clients, hooks |
-| `tests/integration/` | Full pre/post_call chain, user isolation, RAG triggers |
+| `tests/integration/` | Cadeia pre/post_call, isolamento de usuários, triggers RAG |
 
-Integration tests against live Docker are optional:
+Testes de integração contra Docker ao vivo são opcionais:
 
 ```powershell
 python -m pytest tests/integration/ -v
@@ -225,37 +225,37 @@ docker compose config
 
 ---
 
-## Project layout
+## Estrutura do projeto
 
 ```
 Chronos_Chat/
 ├── config/
 │   ├── litellm/           # Hub: config.yaml, hooks/, orchestration/
-│   ├── librechat/         # UI → LiteLLM only
-│   ├── mem0/              # mem0 Docker build
-│   └── anythingllm/       # Workspaces + RAG notes
-├── scripts/               # llama launchers, health-check, stack helpers
-├── tests/                 # pytest suites
+│   ├── librechat/         # UI → somente LiteLLM
+│   ├── mem0/              # Build Docker mem0
+│   └── anythingllm/       # Workspaces + notas RAG
+├── scripts/               # Launchers llama, health-check, stack
+├── tests/                 # Suítes pytest
 ├── docker-compose.yml
 ├── .env.example
-├── AGENTS.md              # Guide for AI coding agents
-├── Hardware.md            # Reference machine spec
+├── AGENTS.md              # Guia para agentes de IA
+├── Hardware.md            # Spec da máquina de referência
 ├── LICENSE
 └── SECURITY.md
 ```
 
-Per-service notes: `config/*/README.md`.
+Notas por serviço: `config/*/README.md`.
 
 ---
 
-## Development
+## Desenvolvimento
 
-1. Read [AGENTS.md](AGENTS.md) for architecture constraints.
-2. Business logic lives in `config/litellm/orchestration/`; hooks stay thin.
-3. Run `python -m pytest` before opening a PR.
-4. Never commit `.env`, `llama-paths.local.bat`, or model weights.
+1. Leia [AGENTS.md](AGENTS.md) para restrições de arquitetura.
+2. Lógica de negócio em `config/litellm/orchestration/`; hooks permanecem finos.
+3. Rode `python -m pytest` antes de abrir PR.
+4. Nunca commite `.env`, `llama-paths.local.bat` nem pesos `.gguf`.
 
-There is no cloud deploy path in this repo — production means your own Windows + Docker host.
+Não há deploy em nuvem neste repositório — produção é o seu próprio host Windows + Docker.
 
 ---
 
@@ -263,21 +263,21 @@ There is no cloud deploy path in this repo — production means your own Windows
 
 | Status | Item |
 |--------|------|
-| Done | LiteLLM hub F0–F8: mem0, RAG, context budget, `X-User-Id`, vision E2E |
-| Planned | **F9** MCP for actions only (not base memory/RAG) |
-| Planned | Thinking policy / extended tuning (env-gated) |
+| Concluído | Hub LiteLLM F0–F8: mem0, RAG, context budget, `X-User-Id`, visão E2E |
+| Planejado | **F9** MCP só para ações (não memória/RAG base) |
+| Planejado | Thinking policy / tuning estendido (via env) |
 
 ---
 
-## Contributing
+## Contribuição
 
-1. Fork the repository and create a feature branch.
-2. Keep changes aligned with the hub architecture (LibreChat → LiteLLM only).
-3. Add or update tests for policy/orchestration changes.
-4. Follow [SECURITY.md](SECURITY.md) — no secrets in commits.
+1. Faça fork e crie um branch de feature.
+2. Mantenha a arquitetura hub (LibreChat → somente LiteLLM).
+3. Adicione ou atualize testes para mudanças em policy/orquestração.
+4. Siga [SECURITY.md](SECURITY.md) — sem segredos nos commits.
 
 ---
 
-## License
+## Licença
 
 [MIT](LICENSE) — Copyright (c) 2026 Magonitte.
